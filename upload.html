@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduInsight AI — Upload Submissions</title>
+  <meta name="description" content="Upload student assignment submissions in PDF or text format for AI analysis." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .preview-table-wrap {
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    .q-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .q-row input {
+      flex: 1;
+    }
+
+    .q-row button {
+      flex-shrink: 0;
+    }
+
+    .format-tab-content {
+      display: none;
+    }
+
+    .format-tab-content.active {
+      display: block;
+    }
+
+    #file-name-display {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--purple-300);
+      min-height: 20px;
+    }
+
+    .step-indicator {
+      display: flex;
+      gap: 0;
+      margin-bottom: 32px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .step.active .step-num {
+      background: var(--purple-500);
+      color: #fff;
+      border-color: var(--purple-500);
+    }
+
+    .step.done .step-num {
+      background: var(--green-400);
+      color: #111;
+      border-color: var(--green-400);
+    }
+
+    .step-label {
+      color: var(--text-muted);
+    }
+
+    .step.active .step-label {
+      color: var(--purple-300);
+    }
+
+    .step.done .step-label {
+      color: var(--green-400);
+    }
+
+    .step-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      margin: 0 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="logo-icon">📊</div>
+      <span class="brand-name">EduInsight AI</span>
+      <span class="ps-badge">PS5D146E</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a href="upload.html" class="nav-link active"><span class="nav-icon">📤</span> Upload</a>
+      <a href="analytics.html" class="nav-link"><span class="nav-icon">🔬</span> Analytics</a>
+      <a href="feedback.html" class="nav-link"><span class="nav-icon">✏️</span> Feedback</a>
+      <a href="index.html?settings=true" class="nav-link"><span class="nav-icon">⚙️</span> Settings</a>
+    </div>
+  </nav>
+
+  <div id="toast-container"></div>
+
+  <div class="page-wrapper">
+    <div class="page-header">
+      <div class="breadcrumb"><a href="index.html" style="color:inherit;text-decoration:none;">Dashboard</a> ›
+        <span>Upload</span>
+      </div>
+      <h1>Upload Submissions</h1>
+      <p>Import student assignment responses via PDF or manual entry. The AI will group answers by question
+        automatically.</p>
+    </div>
+
+    <!-- Step indicator -->
+    <div class="step-indicator">
+      <div class="step active" id="step1-ind">
+        <div class="step-num">1</div>
+        <div class="step-label">Assignment Info</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" id="step2-ind">
+        <div class="step-num">2</div>
+        <div class="step-label">Upload Data</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" id="step3-ind">
+        <div class="step-num">3</div>
+        <div class="step-label">Preview & Save</div>
+      </div>
+    </div>
+
+    <!-- Step 1: Assignment details -->
+    <div id="step1">
+      <div class="card">
+        <div class="card-title">Assignment Details</div>
+        <div class="card-subtitle">Basic information about the assignment you're analyzing.</div>
+        <div class="grid-2" style="gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Assignment Title *</label>
+            <input id="title" type="text" class="form-input" placeholder="e.g. Midterm — Chapter 5 Q&A" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input id="subject" type="text" class="form-input" placeholder="e.g. Computer Science" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Questions (add one per row)</label>
+          <div id="questions-list">
+            <div class="q-row"><input type="text" class="form-input q-input" placeholder="Question 1" /><button
+                class="btn btn-secondary btn-sm" onclick="addQuestion()">+</button></div>
+          </div>
+          <button class="btn btn-secondary btn-sm mt-8" onclick="addQuestion()">+ Add Question</button>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-primary" onclick="goStep2()">Next: Upload Data →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Upload -->
+    <div id="step2" class="hidden">
+      <div class="card">
+        <div class="card-title">Upload Student Responses</div>
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchFormat('pdf',this)">📄 PDF File</button>
+          <button class="tab-btn" onclick="switchFormat('manual',this)">✏️ Manual Entry</button>
+        </div>
+
+        <!-- PDF -->
+        <div id="format-pdf" class="format-tab-content active">
+          <div class="dropzone" id="pdf-drop" onclick="document.getElementById('pdf-file').click()">
+            <div class="dz-icon">📄</div>
+            <h3>Drop your PDF file here</h3>
+            <p>or click to browse — The AI will extract text from the document</p>
+            <div id="file-name-display"></div>
+          </div>
+          <input type="file" id="pdf-file" accept=".pdf" style="display:none;" onchange="handlePDF(this)" />
+          <div class="card mt-12" style="font-size:12px;color:var(--text-secondary);padding:12px 16px;">
+            <strong style="color:var(--purple-300);">📎 PDF Tip:</strong><br>
+            Ensure your PDF contains selectable text. The system will attempt to identify Student IDs and Question
+            numbers automatically.
+          </div>
+        </div>
+
+        <!-- Manual -->
+        <div id="format-manual" class="format-tab-content">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Enter responses manually. Student ID
+            and question index (0-based) are required.</p>
+          <div id="manual-rows">
+            <div class="grid-2" style="gap:8px;margin-bottom:8px;font-size:12px;color:var(--text-muted);">
+              <span>Student ID · Q# (0-based) · Answer · Score</span>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="addManualRow()">+ Add Row</button>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:space-between;margin-top:20px;">
+          <button class="btn btn-secondary" onclick="goStep1()">← Back</button>
+          <button class="btn btn-primary" onclick="goStep3()">Next: Preview →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Preview & Save -->
+    <div id="step3" class="hidden">
+      <div class="card">
+        <div class="section-header">
+          <div class="card-title">Preview Submissions</div>
+          <div id="preview-count" class="badge badge-purple">0 rows</div>
+        </div>
+        <div class="table-wrap preview-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Student ID</th>
+                <th>Question</th>
+                <th>Answer</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="preview-tbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:space-between;margin-top:20px;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="goStep2()">← Back</button>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="clearPreview()">🗑️ Clear All</button>
+            <button class="btn btn-primary" id="save-btn" onclick="saveAll()">💾 Save & Analyze</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script src="js/storage.js"></script>
+  <script>
+    let parsedSubmissions = [];
+    let assignmentId = null;
+
+    /* ── Toast ─────────────────────────────────────────────── */
+    function showToast(msg, type = 'info') {
+      const el = document.createElement('div');
+      el.className = `toast toast-${type}`;
+      el.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span>${msg}</span>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => el.classList.add('show'), 10);
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
+    }
+
+    /* ── Steps ──────────────────────────────────────────────── */
+    function setStep(n) {
+      ['step1', 'step2', 'step3'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (i + 1 === n) el.classList.remove('hidden'); else el.classList.add('hidden');
+      });
+      for (let i = 1; i <= 3; i++) {
+        const ind = document.getElementById(`step${i}-ind`);
+        ind.classList.remove('active', 'done');
+        if (i < n) ind.classList.add('done');
+        if (i === n) ind.classList.add('active');
+      }
+    }
+
+    function goStep2() {
+      const title = document.getElementById('title').value.trim();
+      if (!title) { showToast('Please enter an assignment title.', 'error'); return; }
+      setStep(2);
+      if (document.querySelectorAll('#manual-rows .manual-row').length === 0) addManualRow();
+    }
+
+    function goStep1() { setStep(1); }
+
+    function goStep3() {
+      if (isProcessingPDF) {
+        showToast('Still processing PDF. Please wait...', 'info');
+        return;
+      }
+
+      const manualData = collectManualRows();
+
+      // We want to keep PDF data if it exists, but we MUST ensure we don't 
+      // duplicate manual entries if we go back and forth.
+      // Filter out any existing 'man-' entries from parsedSubmissions
+      const currentPdfData = parsedSubmissions.filter(s => s.id.startsWith('pdf-'));
+      parsedSubmissions = [...currentPdfData, ...manualData];
+
+      if (parsedSubmissions.length === 0) {
+        showToast('No submissions to preview. Please add data first.', 'error');
+        return;
+      }
+      renderPreview();
+      setStep(3);
+    }
+
+    /* ── Questions ──────────────────────────────────────────── */
+    function addQuestion() {
+      const list = document.getElementById('questions-list');
+      const count = list.querySelectorAll('.q-input').length + 1;
+      const row = document.createElement('div');
+      row.className = 'q-row';
+      row.innerHTML = `<input type="text" class="form-input q-input" placeholder="Question ${count}" /><button class="btn btn-secondary btn-sm" onclick="this.parentElement.remove()">✕</button>`;
+      list.appendChild(row);
+    }
+
+    function getQuestions() {
+      return [...document.querySelectorAll('.q-input')].map(i => i.value.trim()).filter(Boolean);
+    }
+
+    /* ── Format tabs ────────────────────────────────────────── */
+    function switchFormat(fmt, btn) {
+      document.querySelectorAll('.format-tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`format-${fmt}`).classList.add('active');
+      btn.classList.add('active');
+      // Do NOT clear parsedSubmissions here as it might lose PDF data
+    }
+
+    /* ── PDF parse ──────────────────────────────────────────── */
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    }
+
+    let isProcessingPDF = false;
+
+    async function handlePDF(input) {
+      if (typeof pdfjsLib === 'undefined') {
+        showToast('PDF support is still loading or blocked. Please try manual entry or refresh.', 'error');
+        return;
+      }
+      const file = input.files[0];
+      if (!file) return;
+      document.getElementById('file-name-display').textContent = `📎 ${file.name} (Processing...)`;
+      isProcessingPDF = true;
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const strings = content.items.map(item => item.str);
+          fullText += strings.join(' ') + '\n';
+        }
+
+        // Basic heuristic parser for PDF text
+        // Looks for something like "Student: S01", "Q1: ...", etc.
+        // If not found, it treats the whole text as one response for Question 0.
+        parseUnstructuredText(fullText);
+
+        document.getElementById('file-name-display').textContent = `✅ ${file.name} (${pdf.numPages} pages)`;
+        showToast(`Extracted content from PDF`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Error reading PDF file.', 'error');
+        document.getElementById('file-name-display').textContent = '❌ Error processing PDF';
+      } finally {
+        isProcessingPDF = false;
+      }
+    }
+
+    function parseUnstructuredText(text) {
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      parsedSubmissions = [];
+
+      // Try to find blocks of student work
+      // Regex pattern to search for student ID like S01 or Student 1
+      const studentMatch = text.match(/(?:Student|ID)[:\s]+([A-Z0-9]+)/gi);
+
+      if (studentMatch && studentMatch.length > 0) {
+        // Advanced logic could go here to split by student
+        // For now, let's just create a generic entry if we find IDs
+        const ids = [...new Set(studentMatch.map(m => m.split(/[:\s]+/)[1]))];
+        ids.forEach((sid, idx) => {
+          parsedSubmissions.push({
+            id: `pdf-${Date.now()}-${idx}`,
+            studentId: sid,
+            question: 0,
+            answer: text.slice(0, 1000), // Placeholder for actual split logic
+            score: null
+          });
+        });
+      } else {
+        // Fallback: one entry
+        parsedSubmissions.push({
+          id: `pdf-${Date.now()}-0`,
+          studentId: 'Student1',
+          question: 0,
+          answer: text,
+          score: null
+        });
+      }
+    }
+
+    /* ── Manual entry ────────────────────────────────────────         */
+    function addManualRow() {
+      const container = document.getElementById('manual-rows');
+      const row = document.createElement('div');
+      row.className = 'manual-row';
+      row.style.cssText = 'display:grid;grid-template-columns:80px 60px 1fr 70px 36px;gap:6px;margin-bottom:8px;align-items:start;';
+      row.innerHTML = `
+      <input type="text"   class="form-input m-sid"  placeholder="S01" />
+      <input type="number" class="form-input m-q"    placeholder="0" min="0" />
+      <textarea            class="form-textarea m-ans" placeholder="Student answer…" style="min-height:60px;"></textarea>
+      <input type="number" class="form-input m-sc"   placeholder="Score" min="0" max="100" step="0.1" />
+      <button class="btn btn-secondary btn-sm" onclick="this.parentElement.remove()" style="margin-top:4px;">✕</button>`;
+      container.appendChild(row);
+    }
+
+    function collectManualRows() {
+      const rows = document.querySelectorAll('.manual-row');
+      const manual = [];
+      rows.forEach((row, i) => {
+        const sid = row.querySelector('.m-sid')?.value.trim();
+        const q = row.querySelector('.m-q')?.value.trim();
+        const ans = row.querySelector('.m-ans')?.value.trim();
+        const sc = row.querySelector('.m-sc')?.value.trim();
+        if (sid && ans) {
+          manual.push({
+            id: `man-${Date.now()}-${i}`,
+            studentId: sid,
+            question: parseInt(q || '0', 10),
+            answer: ans,
+            score: sc ? parseFloat(sc) : null,
+          });
+        }
+      });
+      return manual;
+    }
+
+    /* ── Preview ────────────────────────────────────────────── */
+    function renderPreview() {
+      const tbody = document.getElementById('preview-tbody');
+      const qs = getQuestions();
+      document.getElementById('preview-count').textContent = `${parsedSubmissions.length} rows`;
+      tbody.innerHTML = parsedSubmissions.map((s, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span class="badge badge-purple">${s.studentId}</span></td>
+        <td><span style="font-size:12px;">${qs[s.question] ? `Q${s.question + 1}: ${qs[s.question].slice(0, 40)}…` : `Q${s.question + 1}`}</span></td>
+        <td style="max-width:320px;white-space:pre-wrap;word-break:break-word;">${s.answer.slice(0, 120)}${s.answer.length > 120 ? '…' : ''}</td>
+        <td>${s.score != null ? `<span class="badge ${s.score >= 80 ? 'badge-green' : s.score >= 50 ? 'badge-amber' : 'badge-red'}">${s.score}</span>` : '<span class="text-muted">—</span>'}</td>
+      </tr>`).join('');
+    }
+
+    function clearPreview() { parsedSubmissions = []; renderPreview(); }
+
+    /* ── Save ───────────────────────────────────────────────── */
+    function saveAll() {
+      const btn = document.getElementById('save-btn');
+      if (btn.disabled) return;
+
+      const title = document.getElementById('title').value.trim();
+      const subject = document.getElementById('subject').value.trim() || 'General';
+      const qs = getQuestions();
+
+      if (!title) { showToast('Assignment title is required.', 'error'); return; }
+
+      // Ensure we have current manual data if the user edited something on Step 3
+      const finalManual = collectManualRows();
+      const finalPdf = parsedSubmissions.filter(s => s.id.startsWith('pdf-'));
+      const finalSubmissions = [...finalPdf, ...finalManual];
+
+      if (finalSubmissions.length === 0) {
+        showToast('No submissions to save. Please add data in Step 2.', 'error');
+        return;
+      }
+
+      // UI Feedback
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;margin:0 8px 0 0;display:inline-block;vertical-align:middle;border-width:2px;"></span> Saving...';
+
+      try {
+        assignmentId = 'asn-' + Date.now();
+        const assignment = {
+          id: assignmentId,
+          title,
+          subject,
+          questions: qs.length > 0 ? qs : [...new Set(finalSubmissions.map(s => s.question))].map(q => `Question ${q + 1}`),
+          totalStudents: [...new Set(finalSubmissions.map(s => s.studentId))].length,
+          createdAt: Date.now(),
+        };
+
+        const submissionsToStore = finalSubmissions.map(s => ({ ...s, assignmentId }));
+
+        Storage.saveAssignment(assignment);
+        Storage.saveSubmissions(submissionsToStore);
+        Storage.logActivity(`Uploaded "${title}" — ${submissionsToStore.length} submissions`, 'success');
+
+        showToast('Saved! Redirecting to analytics…', 'success');
+        setTimeout(() => {
+          // Relative path for stable GitHub Pages hosting
+          window.location.href = `./analytics.html?id=${assignmentId}&auto=true`;
+        }, 1200);
+      } catch (err) {
+        console.error('Save failed:', err);
+        showToast('Error saving data. LocalStorage might be full.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '💾 Save & Analyze';
+      }
+    }
+
+    /* ── Drag & drop ────────────────────────────────────────── */
+    ['pdf-drop'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('dragging'); });
+      el.addEventListener('dragleave', () => el.classList.remove('dragging'));
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        el.classList.remove('dragging');
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        const input = document.getElementById('pdf-file');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        handlePDF(input);
+      });
+    });
+  </script>
+</body>
+
+</html>

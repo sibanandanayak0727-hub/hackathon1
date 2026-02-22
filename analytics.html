@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduInsight AI — Analytics</title>
+    <meta name="description"
+        content="AI-powered analytics dashboard: common mistakes, performance bands, concept error heatmap, keyword clusters." />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .heatmap-cell {
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            text-align: center;
+            font-weight: 700;
+            transition: transform var(--transition);
+            cursor: default;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.04);
+        }
+
+        .heat-low {
+            background: rgba(74, 222, 128, 0.15);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            color: var(--green-400);
+        }
+
+        .heat-mid {
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: var(--amber-400);
+        }
+
+        .heat-high {
+            background: rgba(248, 113, 113, 0.15);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: var(--red-400);
+        }
+
+        .heatmap-cell .q-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .heatmap-cell .q-score {
+            font-size: 24px;
+        }
+
+        .heatmap-cell .q-diff {
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .cluster-group {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .cluster-group .rep-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-top: 6px;
+        }
+
+        .keyword-bubble {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(124, 58, 237, 0.15);
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            color: var(--purple-300);
+            margin: 4px;
+            cursor: default;
+            transition: all var(--transition);
+        }
+
+        .keyword-bubble:hover {
+            background: rgba(124, 58, 237, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .keyword-bubble .kw-score {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        #assignment-select {
+            max-width: 380px;
+        }
+
+        .analyze-btn-wrap {
+            margin-top: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <div class="logo-icon">📊</div>
+            <span class="brand-name">EduInsight AI</span>
+            <span class="ps-badge">PS5D146E</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
+            <a href="upload.html" class="nav-link"><span class="nav-icon">📤</span> Upload</a>
+            <a href="analytics.html" class="nav-link active"><span class="nav-icon">🔬</span> Analytics</a>
+            <a href="feedback.html" class="nav-link"><span class="nav-icon">✏️</span> Feedback</a>
+            <a href="index.html?settings=true" class="nav-link"><span class="nav-icon">⚙️</span> Settings</a>
+        </div>
+    </nav>
+
+    <div id="toast-container"></div>
+
+    <div class="page-wrapper">
+        <div class="page-header">
+            <div class="breadcrumb"><a href="index.html" style="color:inherit;text-decoration:none;">Dashboard</a> ›
+                <span>Analytics</span>
+            </div>
+            <h1>AI Analytics Dashboard</h1>
+            <p>Select an assignment to run the AI analysis engine — common mistakes, performance bands, keyword
+                clusters, and confidence scores.</p>
+        </div>
+
+        <!-- Assignment selector -->
+        <div class="card mb-24">
+            <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:240px;">
+                    <label class="form-label">Select Assignment</label>
+                    <select id="assignment-select" class="form-select">
+                        <option value="">— Choose an assignment —</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="analyze-btn" onclick="runAnalysis()">
+                    🤖 Run AI Analysis
+                </button>
+                <a id="feedback-link" href="feedback.html" class="btn btn-secondary hidden">✏️ Go to Feedback</a>
+            </div>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loading-panel" class="hidden" style="text-align:center;padding:60px 0;">
+            <div class="spinner"></div>
+            <p style="color:var(--text-secondary);margin-top:8px;">Running AI analysis engine…</p>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">TF-IDF extraction · Cosine clustering ·
+                N-gram patterns</p>
+        </div>
+
+        <!-- Results panels (hidden until analysis runs) -->
+        <div id="results-panel" class="hidden">
+
+            <!-- Overview stats -->
+            <div class="stats-grid mb-24" id="overview-stats"></div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('mistakes',  this)">🔍 Common Mistakes</button>
+                <button class="tab-btn" onclick="switchTab('heatmap',   this)">🌡️ Question Heatmap</button>
+                <button class="tab-btn" onclick="switchTab('bands',     this)">📊 Performance Bands</button>
+                <button class="tab-btn" onclick="switchTab('keywords',  this)">🏷️ Keywords</button>
+                <button class="tab-btn" onclick="switchTab('clusters',  this)">🔗 Answer Clusters</button>
+            </div>
+
+            <!-- ── Common Mistakes ── -->
+            <div id="tab-mistakes" class="tab-panel active">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">🔍</div> Common Mistakes by Question
+                    </div>
+                    <span class="badge badge-purple" id="mistake-count-badge">0 patterns</span>
+                </div>
+                <div id="mistakes-content"></div>
+            </div>
+
+            <!-- ── Heatmap ── -->
+            <div id="tab-heatmap" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">🌡️</div> Question Difficulty Heatmap
+                    </div>
+                    <span style="font-size:12px;color:var(--text-muted);">Green = Easy · Amber = Moderate · Red =
+                        Hard</span>
+                </div>
+                <div class="heatmap-grid" id="heatmap-content"></div>
+            </div>
+
+            <!-- ── Bands ── -->
+            <div id="tab-bands" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">📊</div> Performance Bands
+                    </div>
+                </div>
+                <div class="band-grid" id="bands-content"></div>
+                <div class="card mt-16" style="overflow-x:auto;">
+                    <div class="card-title mb-8">Score Distribution</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Avg Score</th>
+                                <th>Band</th>
+                                <th>Profile</th>
+                            </tr>
+                        </thead>
+                        <tbody id="score-table"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── Keywords ── -->
+            <div id="tab-keywords" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">🏷️</div> Top Keywords per Question
+                    </div>
+                    <span style="font-size:12px;color:var(--text-muted);">Extracted via TF-IDF — bigger = more
+                        relevant</span>
+                </div>
+                <div id="keywords-content"></div>
+            </div>
+
+            <!-- ── Clusters ── -->
+            <div id="tab-clusters" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">🔗</div> Answer Similarity Clusters
+                    </div>
+                    <span style="font-size:12px;color:var(--text-muted);">Groups of similar responses (cosine
+                        similarity)</span>
+                </div>
+                <div id="clusters-content"></div>
+            </div>
+
+        </div><!-- /results-panel -->
+
+
+
+        <!-- No assignments state -->
+        <div id="no-data-panel" class="hidden">
+            <div class="empty-state">
+                <div class="empty-icon">📂</div>
+                <h3>No assignments found</h3>
+                <p>Upload student submissions first, then come back to analyze them.</p>
+                <a href="upload.html" class="btn btn-primary">Upload Submissions</a>
+            </div>
+        </div>
+
+    </div><!-- /page-wrapper -->
+
+    <script src="js/storage.js"></script>
+    <script src="js/ai-engine.js"></script>
+    <script type="module" src="js/gemini.js"></script>
+
+    <script>
+        Storage.seedDemoData();
+
+        let currentInsights = null;
+        let currentAssignment = null;
+
+        async function runGeminiAnalysis(qIdx, mi) {
+            const btn = document.getElementById(`gemini-btn-${qIdx}-${mi}`);
+            const panel = document.getElementById(`gemini-explanation-${qIdx}-${mi}`);
+
+            if (!window.Gemini || !Gemini.isReady()) {
+                showToast('Please set your Gemini API key in Settings (Dashboard)', 'error');
+                return;
+            }
+
+            const mistake = currentInsights.commonMistakes.find(cm => cm.questionIndex === qIdx).mistakes[mi];
+            const qText = currentAssignment.questions[qIdx];
+
+            btn.classList.add('hidden');
+            panel.classList.remove('hidden');
+
+            try {
+                const explanation = await Gemini.explainMistake(qText, mistake.phrase, mistake.examples);
+                panel.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                        <span class="ai-badge">Gemini Deep Analysis</span>
+                        <button class="btn-close" style="font-size:14px;" onclick="document.getElementById('gemini-explanation-${qIdx}-${mi}').classList.add('hidden'); document.getElementById('gemini-btn-${qIdx}-${mi}').classList.remove('hidden');">✕</button>
+                    </div>
+                    <div style="font-size:13px; color:var(--text-primary); line-height:1.6;">
+                        ${explanation.replace(/\n\n/g, '<br><br>')}
+                    </div>
+                `;
+                Storage.logActivity(`Gemini analyzed mistake in Q${qIdx + 1}`, 'success');
+            } catch (err) {
+                showToast('AI ANALYSIS FAILED: Check your API key or connection.', 'error');
+                btn.classList.remove('hidden');
+                panel.classList.add('hidden');
+            }
+        }
+
+
+
+        function showToast(msg, type = 'info') {
+            const el = document.createElement('div');
+            el.className = `toast toast-${type}`;
+            el.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span>${msg}</span>`;
+            document.getElementById('toast-container').appendChild(el);
+            setTimeout(() => el.classList.add('show'), 10);
+            setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
+        }
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${name}`).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        /* ── Load assignments into selector ── */
+        function loadAssignments() {
+            const sel = document.getElementById('assignment-select');
+            const assignments = Storage.getAssignments();
+            if (assignments.length === 0) {
+                document.getElementById('no-data-panel').classList.remove('hidden');
+                return;
+            }
+            assignments.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.title;
+                sel.appendChild(opt);
+            });
+            // Pre-select from URL param
+            const params = new URLSearchParams(window.location.search);
+            const idParam = params.get('id');
+            if (idParam) {
+                sel.value = idParam;
+                // Check if cached
+                const cached = Storage.getInsights(idParam);
+                if (cached) {
+                    loadCachedInsights(idParam, cached);
+                } else if (params.get('auto') === 'true') {
+                    // Auto-trigger analysis if redirected from Save & Analyze
+                    runAnalysis();
+                }
+            }
+        }
+
+        function loadCachedInsights(id, insights) {
+            const assignments = Storage.getAssignments();
+            currentAssignment = assignments.find(a => a.id === id);
+            if (!currentAssignment) return;
+            currentInsights = insights;
+            renderAll();
+            showToast('Loaded cached analysis results.', 'info');
+        }
+
+        /* ── Run analysis ── */
+        function runAnalysis() {
+            const id = document.getElementById('assignment-select').value;
+            if (!id) { showToast('Please select an assignment.', 'error'); return; }
+
+            const assignments = Storage.getAssignments();
+            currentAssignment = assignments.find(a => a.id === id);
+            if (!currentAssignment) { showToast('Assignment not found.', 'error'); return; }
+
+            const submissions = Storage.getSubmissions(id);
+            if (submissions.length === 0) { showToast('No submissions found for this assignment.', 'error'); return; }
+
+            document.getElementById('loading-panel').classList.remove('hidden');
+            document.getElementById('results-panel').classList.add('hidden');
+
+            // Slight delay for UX
+            setTimeout(async () => {
+                try {
+                    currentInsights = AIEngine.analyzeAssignment(currentAssignment, submissions);
+                    Storage.saveInsights(id, currentInsights);
+                    Storage.logActivity(`AI analysis ran on "${currentAssignment.title}"`, 'success');
+                    document.getElementById('loading-panel').classList.add('hidden');
+                    renderAll();
+                    showToast('Local analysis complete! ✨', 'success');
+                } catch (err) {
+                    console.error('Analysis Engine Error:', err);
+                    showToast('Analysis failed. Check console for details.', 'error');
+                    document.getElementById('loading-panel').classList.add('hidden');
+                }
+            }, 900);
+        }
+
+        /* ── Render all panels ── */
+        function renderAll() {
+            const ins = currentInsights;
+            const asmId = document.getElementById('assignment-select').value || currentAssignment?.id;
+
+            document.getElementById('results-panel').classList.remove('hidden');
+            const fl = document.getElementById('feedback-link');
+            fl.setAttribute('href', `feedback.html?id=${asmId}`);
+            fl.classList.remove('hidden');
+
+            renderOverviewStats(ins);
+            renderMistakes(ins);
+            renderHeatmap(ins);
+            renderBands(ins);
+            renderKeywords(ins);
+            renderClusters(ins);
+        }
+
+        /* ── Overview stats ── */
+        function renderOverviewStats(ins) {
+            const totalMistakes = ins.commonMistakes.reduce((n, cm) => n + cm.mistakes.length, 0);
+            document.getElementById('overview-stats').innerHTML = `
+      <div class="stat-card stat-purple"><div class="stat-icon">📊</div><div><div class="stat-value">${ins.classAvg}%</div><div class="stat-label">Class Average</div></div></div>
+      <div class="stat-card stat-cyan"><div class="stat-icon">👥</div><div><div class="stat-value">${ins.totalStudents}</div><div class="stat-label">Students</div></div></div>
+      <div class="stat-card stat-green"><div class="stat-icon">⭐</div><div><div class="stat-value">${ins.perfBands.high.length}</div><div class="stat-label">High Performers</div></div></div>
+      <div class="stat-card stat-pink"><div class="stat-icon">⚠️</div><div><div class="stat-value">${ins.perfBands.struggling.length}</div><div class="stat-label">Need Support</div></div></div>
+      <div class="stat-card stat-amber"><div class="stat-icon">🔍</div><div><div class="stat-value">${totalMistakes}</div><div class="stat-label">Mistake Patterns</div></div></div>`;
+        }
+
+        /* ── Common mistakes ── */
+        function renderMistakes(ins) {
+            const el = document.getElementById('mistakes-content');
+            const all = ins.commonMistakes.filter(cm => cm.mistakes.length > 0);
+            let total = 0;
+            all.forEach(cm => total += cm.mistakes.length);
+            document.getElementById('mistake-count-badge').textContent = `${total} patterns`;
+
+            if (all.length === 0) {
+                el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><h3>No significant patterns detected</h3><p>Great work — students showed diverse responses without common mistakes.</p></div>`;
+                return;
+            }
+
+            el.innerHTML = all.map(cm => `
+      <div class="mb-16">
+        <div class="section-title" style="font-size:15px;margin-bottom:10px;">
+          <span style="background:rgba(124,58,237,0.15);padding:2px 10px;border-radius:4px;font-size:12px;color:var(--purple-300);">Q${cm.questionIndex + 1}</span>
+          &nbsp;${escHtml(cm.question)}
+        </div>
+        ${cm.mistakes.map((m, mi) => `
+          <div class="insight-card">
+            <div class="insight-header">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">RECURRING PATTERN</div>
+                <div class="insight-phrase">"${escHtml(m.phrase)}"</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div class="badge ${m.confidence >= 70 ? 'badge-red' : m.confidence >= 40 ? 'badge-amber' : 'badge-cyan'}">${m.confidence}% confidence</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${m.count} / ${m.affectedStudents} wrong responses</div>
+              </div>
+            </div>
+            <div class="confidence-bar">
+              <div class="confidence-label">Confidence</div>
+              <div class="progress-bar-wrap" style="flex:1;">
+                <div class="progress-bar-fill" style="width:${m.confidence}%;background:${m.confidence >= 70 ? 'linear-gradient(90deg,#dc2626,#ef4444)' : m.confidence >= 40 ? 'linear-gradient(90deg,#d97706,#fbbf24)' : 'linear-gradient(90deg,var(--purple-500),var(--cyan-400))'}"></div>
+              </div>
+              <span style="font-size:12px;font-weight:700;color:var(--text-primary);min-width:36px;text-align:right;">${m.confidence}%</span>
+            </div>
+            ${m.examples.length > 0 ? `
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📎 Example student responses (anonymized):</div>
+            ${m.examples.map(ex => `<div class="insight-examples">${escHtml(ex)}</div>`).join('')}` : ''}
+            <div style="margin-top:10px;font-size:12px;background:rgba(124,58,237,0.08);border-radius:8px;padding:10px 12px;border-left:3px solid var(--purple-500);">
+              <strong style="color:var(--purple-300);">💡 Why flagged:</strong> This phrase appeared in 
+              <strong>${m.count}</strong> incorrect responses, representing <strong>${m.confidence}%</strong> of struggling students — indicating a shared conceptual gap.
+            </div>
+            <div id="gemini-explanation-${cm.questionIndex}-${mi}" class="mt-12 hidden ai-highlight" style="padding:16px; border-radius:12px;">
+              <div class="spinner" style="margin:10px auto;"></div>
+            </div>
+            <button class="btn btn-secondary btn-sm mt-12" id="gemini-btn-${cm.questionIndex}-${mi}" onclick="runGeminiAnalysis(${cm.questionIndex}, ${mi})">
+              ✨ Deep AI Analysis
+            </button>
+          </div>`).join('')}
+      </div>`).join('');
+        }
+
+        /* ── Heatmap ── */
+        function renderHeatmap(ins) {
+            document.getElementById('heatmap-content').innerHTML = ins.qStats.map((q, i) => {
+                const cls = q.avg >= 75 ? 'heat-low' : q.avg >= 50 ? 'heat-mid' : 'heat-high';
+                return `
+        <div class="heatmap-cell ${cls}" title="Q${i + 1}: ${escHtml(q.question)}">
+          <div class="q-label">Q${i + 1}: ${escHtml(q.question.slice(0, 28))}…</div>
+          <div class="q-score">${q.avg}%</div>
+          <div class="q-diff">${q.difficulty}</div>
+          <div class="progress-bar-wrap mt-8" style="height:4px;">
+            <div class="progress-bar-fill" style="width:${q.avg}%;background:${q.avg >= 75 ? 'var(--green-400)' : q.avg >= 50 ? 'var(--amber-400)' : 'var(--red-400)'}"></div>
+          </div>
+        </div>`;
+            }).join('');
+        }
+
+        /* ── Performance bands ── */
+        function renderBands(ins) {
+            const { high, average, struggling } = ins.perfBands;
+            document.getElementById('bands-content').innerHTML = `
+      <div class="band-card high">
+        <h3>⭐ High Performers</h3>
+        <div class="count">${high.length}</div>
+        <div style="font-size:12px;color:var(--text-secondary);">Score ≥ 80%</div>
+        <ul class="band-list">${high.map(s => `<li>${s.studentId} — ${s.avg}%</li>`).join('') || '<li>None</li>'}</ul>
+      </div>
+      <div class="band-card average">
+        <h3>📈 Average Performers</h3>
+        <div class="count">${average.length}</div>
+        <div style="font-size:12px;color:var(--text-secondary);">Score 50–79%</div>
+        <ul class="band-list">${average.map(s => `<li>${s.studentId} — ${s.avg}%</li>`).join('') || '<li>None</li>'}</ul>
+      </div>
+      <div class="band-card struggling">
+        <h3>⚠️ Need Support</h3>
+        <div class="count">${struggling.length}</div>
+        <div style="font-size:12px;color:var(--text-secondary);">Score &lt; 50%</div>
+        <ul class="band-list">${struggling.map(s => `<li>${s.studentId} — ${s.avg}%</li>`).join('') || '<li>None</li>'}</ul>
+      </div>`;
+
+            // Score table
+            const allStudents = [...high, ...average, ...struggling].sort((a, b) => b.avg - a.avg);
+            document.getElementById('score-table').innerHTML = allStudents.map(s => {
+                const band = s.avg >= 80 ? 'High' : s.avg >= 50 ? 'Average' : 'Struggling';
+                const bc = s.avg >= 80 ? 'badge-green' : s.avg >= 50 ? 'badge-amber' : 'badge-red';
+                const bar = `<div class="progress-bar-wrap" style="max-width:120px;display:inline-block;width:80px;vertical-align:middle;"><div class="progress-bar-fill" style="width:${s.avg}%"></div></div>`;
+                return `<tr>
+        <td><span class="badge badge-purple">${s.studentId}</span></td>
+        <td>${bar} <span style="font-size:12px;margin-left:6px;">${s.avg}%</span></td>
+        <td><span class="badge ${bc}">${band}</span></td>
+        <td style="font-size:12px;color:var(--text-muted);">${s.avg >= 80 ? 'Potential peer mentor' : s.avg >= 50 ? 'On track' : 'Recommend intervention'}</td>
+      </tr>`;
+            }).join('');
+        }
+
+        /* ── Keywords ── */
+        function renderKeywords(ins) {
+            document.getElementById('keywords-content').innerHTML = ins.keywords.map((kq, i) => `
+      <div class="card mb-16">
+        <div class="card-title" style="margin-bottom:12px;">Q${i + 1}: ${escHtml(kq.question)}</div>
+        <div class="keywords-wrap">
+          ${kq.keywords.length > 0
+                    ? kq.keywords.map((k, ki) => {
+                        const size = 13 + (kq.keywords.length - ki) * 1.2;
+                        return `<div class="keyword-bubble" style="font-size:${Math.min(size, 20)}px;">${escHtml(k.word)} <span class="kw-score">${k.score}</span></div>`;
+                    }).join('')
+                    : '<span class="text-muted">No significant keywords found.</span>'}
+        </div>
+      </div>`).join('');
+        }
+
+        /* ── Clusters ── */
+        function renderClusters(ins) {
+            document.getElementById('clusters-content').innerHTML = ins.clusters.map((cq, i) => `
+      <div class="card mb-16">
+        <div class="card-title mb-8">Q${i + 1}: ${escHtml(cq.question)}</div>
+        ${cq.groups.map((grp, gi) => `
+          <div class="cluster-group">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="badge badge-cyan">Cluster ${gi + 1}</span>
+              <span class="badge badge-purple">${grp.size} similar response${grp.size !== 1 ? 's' : ''}</span>
+              <span style="font-size:12px;color:var(--text-muted);">Students: ${grp.studentIds.join(', ')}</span>
+            </div>
+            <div class="rep-text">"${escHtml(grp.representative?.slice?.(0, 160) || '')}${grp.representative?.length > 160 ? '…' : ''}"</div>
+          </div>`).join('')}
+      </div>`).join('');
+        }
+
+        const escHtml = s => String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+
+
+        loadAssignments();
+    </script>
+</body>
+
+</html>

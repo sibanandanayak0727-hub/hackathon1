@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduInsight AI — Feedback Editor</title>
+    <meta name="description"
+        content="Review, edit, approve or reject AI-drafted feedback for class, questions, and individual students. Export to PDF or text." />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        .feedback-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all var(--transition);
+        }
+
+        .feedback-block.approved {
+            border-color: rgba(74, 222, 128, 0.35);
+            background: rgba(74, 222, 128, 0.04);
+        }
+
+        .feedback-block.rejected {
+            border-color: rgba(248, 113, 113, 0.25);
+            opacity: 0.55;
+        }
+
+        .fb-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .fb-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--purple-300);
+            margin-bottom: 2px;
+        }
+
+        .fb-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .fb-textarea {
+            width: 100%;
+            min-height: 130px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'Inter', monospace;
+            padding: 12px;
+            resize: vertical;
+            transition: border-color var(--transition);
+            line-height: 1.6;
+            outline: none;
+        }
+
+        .fb-textarea:focus {
+            border-color: var(--purple-500);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+
+        .fb-textarea:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .export-bar {
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+            background: rgba(10, 10, 26, 0.92);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border);
+            padding: 14px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .summary-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 14px;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+        }
+
+        #student-tab-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .student-tab-btn {
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+        }
+
+        .student-tab-btn.active {
+            background: rgba(124, 58, 237, 0.2);
+            border-color: var(--purple-500);
+            color: var(--purple-300);
+        }
+
+        .student-tab-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <div class="logo-icon">📊</div>
+            <span class="brand-name">EduInsight AI</span>
+            <span class="ps-badge">PS5D146E</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
+            <a href="upload.html" class="nav-link"><span class="nav-icon">📤</span> Upload</a>
+            <a href="analytics.html" class="nav-link"><span class="nav-icon">🔬</span> Analytics</a>
+            <a href="feedback.html" class="nav-link active"><span class="nav-icon">✏️</span> Feedback</a>
+            <a href="index.html?settings=true" class="nav-link"><span class="nav-icon">⚙️</span> Settings</a>
+        </div>
+    </nav>
+
+    <div id="toast-container"></div>
+
+    <div class="page-wrapper">
+        <div class="page-header">
+            <div class="breadcrumb"><a href="index.html" style="color:inherit;text-decoration:none;">Dashboard</a> ›
+                <span>Feedback Editor</span>
+            </div>
+            <h1>Feedback Draft Editor</h1>
+            <p>Review AI-generated feedback drafts. Edit freely, then approve or reject each section. Export when ready.
+            </p>
+        </div>
+
+        <!-- Assignment selector -->
+        <div class="card mb-24">
+            <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:240px;">
+                    <label class="form-label">Select Assignment</label>
+                    <select id="assignment-select" class="form-select" onchange="loadFeedback()">
+                        <option value="">— Choose an assignment —</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" onclick="regenerate()">🔄 Regenerate Drafts</button>
+                <button class="btn btn-primary" onclick="generateWithGemini()" id="gemini-gen-btn">✨ Draft with
+                    Gemini</button>
+                <a id="analytics-link" href="analytics.html" class="btn btn-secondary hidden">🔬
+                    Analytics</a>
+            </div>
+        </div>
+
+        <!-- No data -->
+        <div id="no-data-panel" class="hidden">
+            <div class="empty-state">
+                <div class="empty-icon">📊</div>
+                <h3>Run analytics first</h3>
+                <p>Please analyze an assignment before generating feedback drafts.</p>
+                <a href="analytics.html" class="btn btn-primary">Go to Analytics</a>
+            </div>
+        </div>
+        <div id="no-assign-panel" class="hidden">
+            <div class="empty-state">
+                <div class="empty-icon">📂</div>
+                <h3>No assignments found</h3>
+                <p>Upload submissions first, then analyze them.</p>
+                <a href="upload.html" class="btn btn-primary">Upload Submissions</a>
+            </div>
+        </div>
+
+        <!-- Feedback panels -->
+        <div id="feedback-panel" class="hidden">
+
+            <!-- Progress summary -->
+            <div class="card mb-24" id="progress-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <div class="card-title" style="margin-bottom:0;">Review Progress</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <span class="summary-stat"><span id="approved-count">0</span> Approved ✅</span>
+                        <span class="summary-stat"><span id="rejected-count">0</span> Rejected ❌</span>
+                        <span class="summary-stat"><span id="pending-count">0</span> Pending ⏳</span>
+                    </div>
+                </div>
+                <div class="progress-bar-wrap mt-12">
+                    <div class="progress-bar-fill" id="review-progress-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('summary', this)">📝 Class Summary</button>
+                <button class="tab-btn" onclick="switchTab('questions',this)">📋 By Question</button>
+                <button class="tab-btn" onclick="switchTab('students', this)">👤 By Student</button>
+            </div>
+
+            <!-- ── Class Summary ── -->
+            <div id="tab-summary" class="tab-panel active">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">📝</div> Class-Level Summary
+                    </div>
+                </div>
+                <div class="feedback-block" id="summary-block">
+                    <div class="fb-header">
+                        <div>
+                            <div class="fb-label">AI Generated</div>
+                            <div class="fb-title">Class Performance Summary</div>
+                        </div>
+                        <div style="display:flex;gap:6px;" id="summary-status-badge"></div>
+                    </div>
+                    <textarea class="fb-textarea" id="summary-textarea" rows="10"></textarea>
+                    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                        <button class="btn btn-success btn-sm" onclick="setStatus('summary','approved')">✅
+                            Approve</button>
+                        <button class="btn btn-danger  btn-sm" onclick="setStatus('summary','rejected')">❌
+                            Reject</button>
+                        <button class="btn btn-secondary btn-sm" onclick="resetDraft('summary')">↩ Reset to AI
+                            Draft</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── By Question ── -->
+            <div id="tab-questions" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">📋</div> Question-wise Feedback
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="approveAll('questions')">✅ Approve All</button>
+                </div>
+                <div id="question-feedback-list"></div>
+            </div>
+
+            <!-- ── By Student ── -->
+            <div id="tab-students" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="title-icon">👤</div> Student Feedback Drafts
+                    </div>
+                    <span style="font-size:12px;color:var(--text-muted);">Optional — share individually with
+                        students</span>
+                </div>
+                <div id="student-tab-list"></div>
+                <div id="student-feedback-block"></div>
+            </div>
+
+        </div><!-- /feedback-panel -->
+    </div><!-- /page-wrapper -->
+
+    <!-- ── Sticky Export Bar ── -->
+    <div class="export-bar" id="export-bar" style="display:none;">
+        <div style="font-size:13px;color:var(--text-secondary);">
+            <span class="pulse-dot" style="margin-right:6px;"></span>
+            <strong id="export-assign-name">Assignment</strong> — feedback ready to export
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="exportTxt()">📄 Export .txt</button>
+            <button class="btn btn-secondary" onclick="exportJSON()">📋 Export JSON</button>
+            <button class="btn btn-primary" onclick="exportPDF()">🖨️ Export PDF</button>
+        </div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/ai-engine.js"></script>
+    <script src="js/feedback-generator.js"></script>
+    <script src="js/export.js"></script>
+    <script type="module" src="js/gemini.js"></script>
+
+
+    <script>
+        Storage.seedDemoData();
+
+        let feedbackData = null;
+        let insightsData = null;
+        let currentAssignment = null;
+        let originalDrafts = null;   // for reset
+        let activeStudentId = null;
+
+        /* ── Toast ── */
+        function showToast(msg, type = 'info') {
+            const el = document.createElement('div');
+            el.className = `toast toast-${type}`;
+            el.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span>${msg}</span>`;
+            document.getElementById('toast-container').appendChild(el);
+            setTimeout(() => el.classList.add('show'), 10);
+            setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
+        }
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${name}`).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        /* ── Load assignments ── */
+        function initPage() {
+            const sel = document.getElementById('assignment-select');
+            const assignments = Storage.getAssignments();
+            if (assignments.length === 0) {
+                document.getElementById('no-assign-panel').classList.remove('hidden');
+                return;
+            }
+            assignments.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id; opt.textContent = a.title;
+                sel.appendChild(opt);
+            });
+            const params = new URLSearchParams(window.location.search);
+            const idParam = params.get('id');
+            if (idParam) { sel.value = idParam; }
+            loadFeedback();
+        }
+
+        async function generateWithGemini() {
+            if (!currentAssignment) return;
+            if (!window.Gemini || !Gemini.isReady()) {
+                showToast('Please set your Gemini API key in Settings (Dashboard)', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('gemini-gen-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="spinner" style="width:16px; height:16px; border-width:2px; margin:0 8px 0 0; display:inline-block; vertical-align:middle;"></div> Generating...';
+            btn.disabled = true;
+
+            try {
+                const context = {
+                    assignmentTitle: currentAssignment.title,
+                    subject: currentAssignment.subject,
+                    classAvg: insightsData.classAvg,
+                    insights: insightsData.commonMistakes.map(cm => ({
+                        question: cm.question,
+                        patterns: cm.mistakes.map(m => m.phrase)
+                    }))
+                };
+
+                const geminiDraft = await Gemini.generateFeedback(context);
+
+                // Update the summary block with Gemini's response
+                feedbackData.summary = geminiDraft;
+                feedbackData.summaryStatus = 'approved';
+                saveCurrentFeedback();
+                renderSummary();
+                updateProgress();
+
+                showToast('Gemini feedback generated! ✨', 'success');
+                Storage.logActivity(`Gemini feedback generated for "${currentAssignment.title}"`, 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Gemini generation failed.', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+
+        function loadFeedback() {
+            const id = document.getElementById('assignment-select').value;
+            if (!id) return;
+
+            const assignments = Storage.getAssignments();
+            currentAssignment = assignments.find(a => a.id === id);
+            if (!currentAssignment) return;
+
+            document.getElementById('analytics-link').setAttribute('href', `analytics.html?id=${id}`);
+            document.getElementById('analytics-link').classList.remove('hidden');
+            document.getElementById('export-assign-name').textContent = currentAssignment.title;
+
+            insightsData = Storage.getInsights(id);
+            if (!insightsData) {
+                document.getElementById('feedback-panel').classList.add('hidden');
+                document.getElementById('no-data-panel').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('no-data-panel').classList.add('hidden');
+
+            // Load or generate feedback
+            feedbackData = Storage.getFeedback(id);
+            const submissions = Storage.getSubmissions(id);
+            if (!feedbackData) {
+                feedbackData = FeedbackGenerator.generateAll(currentAssignment, submissions, insightsData);
+                Storage.saveFeedback(id, feedbackData);
+                Storage.logActivity(`Feedback drafts generated for "${currentAssignment.title}"`, 'success');
+            }
+            originalDrafts = JSON.parse(JSON.stringify(feedbackData)); // deep clone
+
+            renderFeedback();
+            document.getElementById('feedback-panel').classList.remove('hidden');
+            document.getElementById('export-bar').style.display = 'flex';
+            updateProgress();
+        }
+
+        /* ── Render everything ── */
+        function renderFeedback() {
+            renderSummary();
+            renderQuestions();
+            renderStudents();
+        }
+
+        /* ── Summary ── */
+        function renderSummary() {
+            document.getElementById('summary-textarea').value = feedbackData.summary;
+            const block = document.getElementById('summary-block');
+            block.className = `feedback-block ${feedbackData.summaryStatus}`;
+            document.getElementById('summary-status-badge').innerHTML =
+                `<span class="badge badge-${feedbackData.summaryStatus}">${feedbackData.summaryStatus}</span>`;
+        }
+
+        /* ── Save summary on input ── */
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('summary-textarea').addEventListener('input', function () {
+                if (!feedbackData) return;
+                feedbackData.summary = this.value;
+                saveCurrentFeedback();
+            });
+        });
+
+        /* ── Questions ── */
+        function renderQuestions() {
+            const el = document.getElementById('question-feedback-list');
+            el.innerHTML = feedbackData.questionDrafts.map((qd, i) => `
+      <div class="feedback-block ${qd.status}" id="qblock-${i}">
+        <div class="fb-header">
+          <div>
+            <div class="fb-label">Question ${i + 1} · AI Draft</div>
+            <div class="fb-title">${escHtml(qd.question)}</div>
+          </div>
+          <span class="badge badge-${qd.status}">${qd.status}</span>
+        </div>
+        <textarea class="fb-textarea" id="q-textarea-${i}" rows="8" ${qd.status === 'rejected' ? 'disabled' : ''} oninput="updateQDraft(${i},this.value)">${escHtml(qd.draft)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <button class="btn btn-success  btn-sm" onclick="setQStatus(${i},'approved')">✅ Approve</button>
+          <button class="btn btn-danger   btn-sm" onclick="setQStatus(${i},'rejected')">❌ Reject</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetQDraft(${i})">↩ Reset</button>
+        </div>
+      </div>`).join('');
+        }
+
+        function updateQDraft(i, val) {
+            feedbackData.questionDrafts[i].draft = val;
+            saveCurrentFeedback();
+        }
+
+        function setQStatus(i, status) {
+            feedbackData.questionDrafts[i].status = status;
+            saveCurrentFeedback();
+            renderQuestions();
+            updateProgress();
+            showToast(`Question ${i + 1} marked ${status}`, status === 'approved' ? 'success' : 'info');
+        }
+
+        function resetQDraft(i) {
+            feedbackData.questionDrafts[i].draft = originalDrafts.questionDrafts[i].draft;
+            feedbackData.questionDrafts[i].status = 'pending';
+            saveCurrentFeedback();
+            renderQuestions();
+            updateProgress();
+        }
+
+        function approveAll(type) {
+            if (type === 'questions') {
+                feedbackData.questionDrafts.forEach(qd => { if (qd.status !== 'rejected') qd.status = 'approved'; });
+                saveCurrentFeedback();
+                renderQuestions();
+                updateProgress();
+                showToast('All questions approved!', 'success');
+            }
+        }
+
+        /* ── Students ── */
+        function renderStudents() {
+            const list = document.getElementById('student-tab-list');
+            list.innerHTML = feedbackData.studentDrafts.map(sd => `
+      <button class="student-tab-btn ${sd.studentId === activeStudentId ? 'active' : ''}"
+              onclick="selectStudent('${sd.studentId}')">
+        ${sd.studentId}
+        <span class="badge badge-${sd.status}" style="margin-left:4px;padding:1px 6px;font-size:10px;">${sd.status[0].toUpperCase()}</span>
+      </button>`).join('');
+
+            if (!activeStudentId && feedbackData.studentDrafts.length > 0) {
+                activeStudentId = feedbackData.studentDrafts[0].studentId;
+            }
+            renderStudentBlock();
+        }
+
+        function selectStudent(sid) {
+            activeStudentId = sid;
+            renderStudents();
+        }
+
+        function renderStudentBlock() {
+            const el = document.getElementById('student-feedback-block');
+            const sd = feedbackData.studentDrafts.find(s => s.studentId === activeStudentId);
+            if (!sd) { el.innerHTML = ''; return; }
+            el.innerHTML = `
+      <div class="feedback-block ${sd.status}" id="sblock-${sd.studentId}">
+        <div class="fb-header">
+          <div>
+            <div class="fb-label">Student Feedback · AI Draft</div>
+            <div class="fb-title">Student ${escHtml(sd.studentId)}</div>
+          </div>
+          <span class="badge badge-${sd.status}">${sd.status}</span>
+        </div>
+        <textarea class="fb-textarea" id="s-textarea-${sd.studentId}" rows="8"
+          ${sd.status === 'rejected' ? 'disabled' : ''}
+          oninput="updateSDraft('${sd.studentId}',this.value)">${escHtml(sd.draft)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <button class="btn btn-success  btn-sm" onclick="setSStatus('${sd.studentId}','approved')">✅ Approve</button>
+          <button class="btn btn-danger   btn-sm" onclick="setSStatus('${sd.studentId}','rejected')">❌ Reject</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetSDraft('${sd.studentId}')">↩ Reset</button>
+        </div>
+      </div>`;
+        }
+
+        function updateSDraft(sid, val) {
+            const sd = feedbackData.studentDrafts.find(s => s.studentId === sid);
+            if (sd) { sd.draft = val; saveCurrentFeedback(); }
+        }
+
+        function setSStatus(sid, status) {
+            const sd = feedbackData.studentDrafts.find(s => s.studentId === sid);
+            if (sd) {
+                sd.status = status;
+                saveCurrentFeedback();
+                renderStudents();
+                updateProgress();
+                showToast(`Student ${sid} feedback marked ${status}`, status === 'approved' ? 'success' : 'info');
+            }
+        }
+
+        function resetSDraft(sid) {
+            const sd = feedbackData.studentDrafts.find(s => s.studentId === sid);
+            const ori = originalDrafts.studentDrafts.find(s => s.studentId === sid);
+            if (sd && ori) { sd.draft = ori.draft; sd.status = 'pending'; saveCurrentFeedback(); renderStudents(); }
+        }
+
+        /* ── Summary status ── */
+        function setStatus(type, status) {
+            if (type === 'summary') {
+                feedbackData.summaryStatus = status;
+                saveCurrentFeedback();
+                renderSummary();
+                updateProgress();
+                showToast(`Class summary marked ${status}`, status === 'approved' ? 'success' : 'info');
+            }
+        }
+
+        function resetDraft(type) {
+            if (type === 'summary') {
+                feedbackData.summary = originalDrafts.summary;
+                feedbackData.summaryStatus = 'pending';
+                saveCurrentFeedback();
+                renderSummary();
+                updateProgress();
+            }
+        }
+
+        /* ── Regenerate ── */
+        function regenerate() {
+            if (!currentAssignment) return;
+            const submissions = Storage.getSubmissions(currentAssignment.id);
+            feedbackData = FeedbackGenerator.generateAll(currentAssignment, submissions, insightsData);
+            originalDrafts = JSON.parse(JSON.stringify(feedbackData));
+            saveCurrentFeedback();
+            renderFeedback();
+            updateProgress();
+            showToast('Feedback drafts regenerated.', 'success');
+        }
+
+        /* ── Progress ── */
+        function updateProgress() {
+            const all = [
+                { status: feedbackData.summaryStatus },
+                ...feedbackData.questionDrafts,
+                ...feedbackData.studentDrafts,
+            ];
+            const reviewed = all.filter(i => i.status !== 'pending').length;
+            const approved = all.filter(i => i.status === 'approved').length;
+            const rejected = all.filter(i => i.status === 'rejected').length;
+            const pct = Math.round((reviewed / all.length) * 100);
+            document.getElementById('approved-count').textContent = approved;
+            document.getElementById('rejected-count').textContent = rejected;
+            document.getElementById('pending-count').textContent = all.length - reviewed;
+            document.getElementById('review-progress-bar').style.width = `${pct}%`;
+        }
+
+        /* ── Save ── */
+        function saveCurrentFeedback() {
+            if (!currentAssignment || !feedbackData) return;
+            Storage.saveFeedback(currentAssignment.id, feedbackData);
+        }
+
+        /* ── Export ── */
+        function exportTxt() {
+            if (!feedbackData || !currentAssignment) return;
+            const text = Exporter.buildTextReport(currentAssignment, feedbackData, insightsData);
+            const slug = currentAssignment.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            Exporter.downloadText(text, `${slug}_feedback.txt`);
+            Storage.logActivity(`Exported feedback as TXT — "${currentAssignment.title}"`, 'info');
+            showToast('Text file downloaded!', 'success');
+        }
+
+        function exportJSON() {
+            if (!feedbackData || !currentAssignment) return;
+            Exporter.downloadJSON({
+                assignment: currentAssignment,
+                feedback: feedbackData,
+                insights: insightsData,
+                exportedAt: new Date().toISOString(),
+            }, `${currentAssignment.id}_feedback.json`);
+            showToast('JSON file downloaded!', 'success');
+        }
+
+        function exportPDF() {
+            if (!feedbackData || !currentAssignment) return;
+            Exporter.printReport(currentAssignment, feedbackData, insightsData);
+            Storage.logActivity(`PDF export triggered — "${currentAssignment.title}"`, 'info');
+            showToast('PDF print dialog opened!', 'success');
+        }
+
+        const escHtml = s => String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+
+
+        initPage();
+    </script>
+</body>
+
+</html>

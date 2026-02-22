@@ -1,0 +1,31 @@
+studentId,question,answer,score
+S01,0,"A linked list is a sequence of nodes where each node stores data and a pointer to the next node.",90
+S02,0,"Linked list stores data in arrays with index access",40
+S03,0,"It is a data structure with nodes connected by pointers, starting from the head node.",88
+S04,0,"A linked list is like an array but elements are stored in random memory locations.",65
+S05,0,"Nodes containing data and a next pointer forming a chain, with head pointing to the first node.",92
+S06,0,"Linked lists store elements in memory directly without pointers",35
+S07,0,"A list of elements linked using pointers; the first element is called the head.",85
+S08,0,"It stores data in arrays and uses index to access elements",30
+S09,0,"A linear data structure where each node points to the next; last node points to null.",91
+S10,0,"Collections of items stored in arrays with sequential access",25
+S01,1,"Binary search has time complexity O(log n) because it halves the search space each iteration.",95
+S02,1,"Binary search is O(n) because it checks all elements in the list",20
+S03,1,"O(log n) — each iteration divides the array in half until the element is found.",93
+S04,1,"It is O(n log n) because sorting is required before searching",45
+S05,1,"O(log n) complexity since we divide the array by 2 every iteration.",91
+S06,1,"O(n) time complexity because it searches through the entire list",20
+S07,1,"Binary search is O(log n) as it divides the problem space in half each step.",90
+S08,1,"O(n log n) because it sorts and then searches the array",40
+S09,1,"O(log n) — logarithmic since search space halves each step.",95
+S10,1,"Linear O(n) because it traverses every element",18
+S01,2,"A hash collision occurs when two different keys produce the same hash index.",94
+S02,2,"Collision is when the hash table is full and cannot accept more values",25
+S03,2,"When two different keys produce the same hash value resulting in the same bucket.",96
+S04,2,"Collision means the key is not found in the hash table",20
+S05,2,"Two distinct keys map to same bucket; resolved via chaining or open addressing.",98
+S06,2,"Hash collision is when the hashing algorithm crashes or throws an error",10
+S07,2,"Same hash index for two different keys; resolved by open addressing or separate chaining.",90
+S08,2,"When hash function returns error or duplicate key in the table",15
+S09,2,"Occurs when two keys hash to the same slot; handled by chaining or probing.",93
+S10,2,"When the hash table has no more space available for new keys",20
